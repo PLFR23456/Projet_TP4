@@ -10,7 +10,7 @@
 
 
 void exec_bloc(char *bloc){
-    printf(" Execution du bloc : %s\n",bloc);
+    printf("\t -- Execution du bloc : %s\n",bloc);
     // tableau de tableau de string (cmd)
     int n=1;
     int fd;
@@ -37,7 +37,7 @@ void exec_bloc(char *bloc){
     int len = strlen(last_arg);
     
     if(last_arg[len-1]=='&'){
-        printf(" commande en arriere plan\n");
+        printf("* commande en arriere plan\n");
         background_cmd = true;
         last_arg[len-1] = '\0';
         // /!\ peut generer une commande nulle
@@ -53,7 +53,24 @@ void exec_bloc(char *bloc){
     }
 
     if(n_pipe==0){
-        printf("commmande simple\n");
+        // pwd
+        if(strcmp(cmd_list[0].args[0], "pwd") == 0){
+            char cwd[256];
+            if (getcwd(cwd,sizeof(cwd)) != NULL){
+                printf("%s\n", cwd);
+            }else{
+                perror("getcwd");
+            }
+            return;
+        }
+        // CD
+        if(strcmp(cmd_list[0].args[0], "cd") == 0) {
+            char* arg = cmd_list[0].args[1];
+            if(arg == NULL){arg =getenv("HOME"); } // par défaut le home
+            chdir(arg);
+            return;
+        }
+        
 
         pid_t pid = fork();
         
@@ -73,12 +90,9 @@ void exec_bloc(char *bloc){
         } else {
             //  Parent : attend la fin du processus enfant
             int status;
-            if(!background_cmd){waitpid(pid, &status, 0);printf("on attend");}
+            if(!background_cmd){waitpid(pid, &status, 0);}
             printf("La commande s'est terminée avec le code %d\n", WEXITSTATUS(status));
-
-            printf("Suite du programme...\n");
         }
-        printf("le papa");
 
 
     }
@@ -95,7 +109,6 @@ void exec_bloc(char *bloc){
 
         if (pid == 0) {
             // enfant
-            printf("il y a %d commandes",n);
             int pipes[n-1-redirection][2]; // tableau des pipes
             // - redirection car la commande avec redirection compte pour 2 commande
             pid_t pids[n];
@@ -128,6 +141,12 @@ void exec_bloc(char *bloc){
                     if (i < n - 1) {
                         dup2(pipes[i][1], STDOUT_FILENO);
                     }
+                    else{
+                        if(redirection==true){
+                            dup2(fd, STDOUT_FILENO);
+                            close(fd);
+                        }
+                    }
 
                     // Ferme tous les descripteurs de pipe inutilisés
                     for (int j = 0; j < n - 1; j++) {
@@ -151,8 +170,6 @@ void exec_bloc(char *bloc){
             for (int i = 0; i < n; i++) {
                 waitpid(pids[i], NULL, 0);
             }
-
-            perror("execvp failed");
             exit(1);
         } else {
             //  Parent : attend la fin du processus enfant

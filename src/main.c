@@ -24,7 +24,6 @@ int main(){
         do{
          // rentre dans la boucle à chaque fois
             char* token_temp = strdup(token);
-            printf(" string interne %d = %s\n",i,token);
             exec_bloc(token_temp);
             i++;
             token = strtok_r(NULL,";",&saveptr_raw);
