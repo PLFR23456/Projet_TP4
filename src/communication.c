@@ -25,6 +25,7 @@ int cut_in_cmd(char *bloc,cmd** cmd_list,int* n,bool* redirection,int* n_pipe){
             (*n)++;
         }
         if(bloc[i]=='>'){
+            (*n)++;
             *redirection=1;
         }
     }
@@ -73,68 +74,6 @@ int cut_in_cmd(char *bloc,cmd** cmd_list,int* n,bool* redirection,int* n_pipe){
 }
 
 
-void cut_in_args(char *raw_string,char **args, int arg_number){
-    
-    bool background_command = 0;
-    if(raw_string[strlen(raw_string)-1]=='&'){
-        background_command=1;
-        raw_string[strlen(raw_string)-1]=' ';
-    }
-
-    // Compter les tokens
-    int count = 0;
-    char *token_temp_copy = malloc(strlen(raw_string)+1);
-    strcpy(token_temp_copy,raw_string);
-    char *token = strtok(token_temp_copy," ");
-    while (token != NULL) { // tant que token_temp_copy n'est pas vidé
-        count++;
-        token = strtok(NULL," "); // l'argument NULL sert à dire continue là ou tu étais
-    }
-    free(token_temp_copy);
-    if(count == 0){
-        args = NULL;
-        arg_number = 0;
-        return;
-    }
-
-    // Allouer le tableau d’arguments
-
-    args = malloc((count+1+background_command)*sizeof(char *));
-    if(args == NULL){
-        perror("malloc");
-        arg_number = 0;
-        return;
-    }
-
-    // Deuxième passage : découpage réel
-    int i = 0;
-    token = strtok(raw_string," ");
-    while(token != NULL){
-        (args)[i]=malloc(strlen(token)+1);
-        strcpy((args)[i],token);
-        if((args)[i] == NULL){
-            perror("strcpy");
-            for(int j = 0;j<i;++j){
-                free((args)[j]);}
-            free(args);
-            args = NULL;
-            arg_number = 0;
-            return;
-        }
-        i++;
-        token = strtok(NULL, " \t");
-    }
-    (args)[i] = NULL;  // pour que le dernier argument de execpv soit NULL (obligatoire)
-    arg_number = count;
-      
-
-    if(background_command){ // rajoute l'argument spécifique à 
-        (args)[count] = malloc(sizeof(char)*2);
-        (args)[count] = "&";
-    }
-    return;
-
-}
 
 void read_shell(char **raw_user_entry) {
 
@@ -145,17 +84,12 @@ void read_shell(char **raw_user_entry) {
         return;
     }
 
-    // Supprime le retour à la ligne
-    buffer[strcspn(buffer, "\n")]='\0';
-    if(buffer[0] == '\0'){
-        buffer[0]=' ';
-        buffer[1]='\0';
-    }
+
     *raw_user_entry = malloc(strlen(buffer) + 1); // +1 pour le '\0'
-    if (*raw_user_entry == NULL) { // ANTI ERREUR
-        perror("malloc");
-        return;
+    if (*raw_user_entry == NULL){ // ANTI ERREUR MALLOC
+        perror("malloc"); exit(1);
     }
+
     strcpy(*raw_user_entry,buffer);
     
 }

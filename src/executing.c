@@ -6,35 +6,52 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 
 void exec_bloc(char *bloc){
     printf(" Execution du bloc : %s\n",bloc);
     // tableau de tableau de string (cmd)
     int n=1;
-    int last_stop=0;
+    int fd;
     int n_pipe=0;
     bool redirection=false;
     bool background_cmd=false;
 
     cmd* cmd_list;
     if(cut_in_cmd(bloc,&cmd_list,&n,&redirection,&n_pipe)==-1){return;}
-    // lire cmd_list
+    
+    // lire cmd_list pour test
+
+    /*
     for(int i=0;i<n;i++){
         printf(" Commande %d :\n",i);
         for(int j=0;j<cmd_list[i].arg_number;j++){
             printf("  Arg %d : %s\n",j,cmd_list[i].args[j]);
         }
     }
+    */
 
     // execution
     char* last_arg=cmd_list[n-1].args[cmd_list[n-1].arg_number-1];
     int len = strlen(last_arg);
+    
     if(last_arg[len-1]=='&'){
         printf(" commande en arriere plan\n");
         background_cmd = true;
         last_arg[len-1] = '\0';
         // /!\ peut generer une commande nulle
+        // -> déjà gérer par le shell de base
+    }
+    if(redirection==true){
+        // ligne
+        fd = open(cmd_list[n-1].args[0], O_WRONLY | O_CREAT | O_TRUNC, 0644); // trouvé sur internet
+        if (fd == -1) {
+            perror("open failed");
+            exit(1);
+        }
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
     }
 
     if(n_pipe==0){
@@ -48,6 +65,9 @@ void exec_bloc(char *bloc){
         }
 
         if (pid == 0) {
+            if(redirection==true){
+                
+            }
             execvp(cmd_list[0].args[0], cmd_list[0].args);
             perror("execvp failed");
             exit(1);
@@ -64,91 +84,85 @@ void exec_bloc(char *bloc){
 
     }
 
-}
+    // si il y a des tuyaux
+    else{
 
-
-void manage_executing(char **args, int arg_number){
-    // char* token = strtok(args, ",");
-
-    // while (token != NULL) { // si il y a un ";"
-    //     printf("%s\n", token);
-    //     token = strtok(NULL, ",");
-    // }
-
-    //strtok
-    for(int i=0;i<arg_number;i++){
-        if(strcmp(";",args[i])==0){
-            execute(args,arg_number);
+        pid_t pid = fork();
+        
+        if (pid == -1) {
+            perror("fork failed");
+            exit(1);
         }
-    }
-    // si aucun ";" n'est detecté, on enchaine sur l'execution de toute la commande.
-    
-    // faire le tour des arguments, si un est = ";", alors lancer execute() des arguments avant ; 
-    // ensuite relancer manage_executing avec le reste des arguments.
-}
+
+        if (pid == 0) {
+            // enfant
+            printf("il y a %d commandes",n);
+            int pipes[n-1-redirection][2]; // tableau des pipes
+            // - redirection car la commande avec redirection compte pour 2 commande
+            pid_t pids[n];
+
+            for (int i = 0; i < n - 1; i++) {
+                if (pipe(pipes[i]) == -1) {
+                    perror("pipe");
+                    exit(1);
+                }
+            }
 
 
-void execute(char **args, int arg_number) {
-    if(args == NULL || arg_number == 0)
-        return;
+            for (int i = 0; i < n; i++) {
+                pids[i] = fork();
 
-    // BUILTIN : exit
-    if(strcmp(args[0],"exit") == 0){
-        printf("Bye \n");
-        exit(0);
-    }
+                if (pids[i] == -1) {
+                    perror("fork");
+                    exit(1);
+                }
 
-    // BUILTIN : cd
-    if(strcmp(args[0],"cd") == 0) {
-        if (arg_number < 2) {
-            fprintf(stderr, "cd: argument manquant\n");
-            return;
+                if (pids[i] == 0) {
+                    // Processus fils
+
+                    // Si ce n’est pas le premier, on lit depuis le pipe précédent
+                    if (i > 0) {
+                        dup2(pipes[i - 1][0], STDIN_FILENO);
+                    }
+
+                    // Si ce n’est pas le dernier, on écrit vers le pipe suivant
+                    if (i < n - 1) {
+                        dup2(pipes[i][1], STDOUT_FILENO);
+                    }
+
+                    // Ferme tous les descripteurs de pipe inutilisés
+                    for (int j = 0; j < n - 1; j++) {
+                        close(pipes[j][0]);
+                        close(pipes[j][1]);
+                    }
+
+                    // Exécute la commande
+                    execvp(cmd_list[i].args[0], cmd_list[i].args);
+                    perror("execvp"); // si exec échoue
+                    exit(1);
+                }
+            }
+
+            for (int i = 0; i < n - 1; i++) {
+                close(pipes[i][0]);
+                close(pipes[i][1]);
+            }
+
+            // Attend la fin de tous les fils
+            for (int i = 0; i < n; i++) {
+                waitpid(pids[i], NULL, 0);
+            }
+
+            perror("execvp failed");
+            exit(1);
+        } else {
+            //  Parent : attend la fin du processus enfant
+            int status;
+            if(!background_cmd){waitpid(pid, &status, 0);printf("on attend");}
+            printf("La commande s'est terminée avec le code %d\n", WEXITSTATUS(status));
         }
-        if(chdir(args[1])!= 0) {
-            perror("cd");
-            return;
-        }
-        return;
+
+
     }
 
-    // BUILTIN : pwd
-    if (strcmp(args[0], "pwd") == 0) {
-        char cwd[1024];
-        if (getcwd(cwd, sizeof(cwd)) != NULL)
-        {
-            printf("%s\n", cwd);
-        }
-        else
-        {
-            perror("pwd");
-        }
-        return;
-    }
-
-    // Autre commande : fork + execvp
-
-    // si args[-2] == "&"
-
-
-    if(strcmp(args[arg_number-1],"&")==0){printf(" en arriere plan ! 4");}
-
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        perror("fork");
-        return;
-    }
-
-    if (pid == 0) {
-        // Enfant
-        execvp(args[0], args);
-        perror("execvp");
-        _exit(EXIT_FAILURE);
-    } else {
-        // Parent
-        int status;
-        waitpid(pid, &status, 0);
-    }
-
-    return;
 }

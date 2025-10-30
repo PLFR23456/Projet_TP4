@@ -8,7 +8,6 @@ enum program_state {RUNNING,WAITING,FINISHED};
 
 int main(){
     enum program_state state = RUNNING;
-    int separator, arg_number;
 
     while(state==RUNNING){
         printf("$");
