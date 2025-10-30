@@ -19,7 +19,6 @@ int main(){
         
         char *saveptr_raw;
         char* token = strtok_r(raw_user_entry, ";",&saveptr_raw); 
-
         // si il n'y a pas de ; -> string complet
         // sinon il représente que le premier
         int i = 0;
@@ -29,8 +28,6 @@ int main(){
             printf(" string interne %d = %s\n",i,token);
             exec_bloc(token_temp);
             i++;
-            
-
             token = strtok_r(NULL,";",&saveptr_raw);
             // char** args = NULL; // LISTE DE STRINGs (arguments)
             // arg_number = 0;
@@ -39,7 +36,6 @@ int main(){
             printf("\n-\n");
             //execute(args,arg_number,separator);
         }while(token != NULL);
-        printf("out");
         free(raw_user_entry);
 
     }

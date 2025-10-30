@@ -5,9 +5,17 @@
 #include <stdbool.h>
 #include "../inc/executing.h"
 
-void cut_in_cmd(char *bloc,cmd** cmd_list,int* n,bool* redirection,int* n_pipe){
+int cut_in_cmd(char *bloc,cmd** cmd_list,int* n,bool* redirection,int* n_pipe){
     // gérer le cas si bloc nul ou vide
-    if (bloc == NULL || *bloc == '\0') return;
+
+
+    if (bloc == NULL || 
+        *bloc == '\0' ||
+        strspn(bloc, " \t\r\n") == strlen(bloc)){
+        printf("Vous avez rentré une commande vide\n"); 
+        return -1;
+    }
+
     int arg_number;
     int length_bloc = strlen(bloc);
     //boucle qui compte le nombre de | et >
@@ -27,41 +35,39 @@ void cut_in_cmd(char *bloc,cmd** cmd_list,int* n,bool* redirection,int* n_pipe){
     char* token = strtok_r(bloc, "|>",&saveptr_bloc); 
     int nb_cmd=0;
     do{
-            //exec_bloc(token);
-            printf(" cmd interne %d = %s\n",nb_cmd,token);
-            
+        // compte le nb d'arguments , separator " "
+        arg_number=0;
+        char temp[MAX_LENGTH_PROMPT];
+        strcpy(temp, token);
+        //vérifier que temp n'est pas que des espaces ou vide
 
-            // compte le nb d'arguments , separator " "
-            arg_number=0;
-            char temp[MAX_LENGTH_PROMPT];
-            strcpy(temp, token);
-            char* token_arg = strtok(temp, " "); 
-            do{
-                arg_number++;
-                token_arg = strtok(NULL, " "); 
-            }while(token_arg != NULL);
-            (*cmd_list)[nb_cmd].arg_number=arg_number; 
-            (*cmd_list)[nb_cmd].args=malloc(sizeof(char*)*arg_number);
-            // malloc nb arguments chacun de taille max 256 char
-            for(int y=0;y<arg_number;y++){
-                (*cmd_list)[nb_cmd].args[y]= malloc(sizeof(char)*MAX_LENGTH_PROMPT);
-            }
+        char* token_arg = strtok(temp, " ");
+        // if(token_arg = "\0"){return -1;} 
+        do{
+            arg_number++;
+            token_arg = strtok(NULL, " "); 
+        }while(token_arg != NULL);
+        (*cmd_list)[nb_cmd].arg_number=arg_number; 
+        (*cmd_list)[nb_cmd].args=malloc(sizeof(char*)*(arg_number+1));
+        // malloc nb arguments chacun de taille max 256 char
+        for(int y=0;y<arg_number;y++){
+            (*cmd_list)[nb_cmd].args[y]= malloc(sizeof(char)*MAX_LENGTH_PROMPT);
+        }
+        (*cmd_list)[nb_cmd].args[arg_number]=NULL; // pas besoin d'un malloc
+        // les remplit
+        strcpy(temp, token);
+        token_arg = strtok(temp, " ");
+        strcpy((*cmd_list)[nb_cmd].args[0],token_arg); 
+        for(int y=1;y<arg_number;y++){
+            token_arg = strtok(NULL, " ");
+            strcpy((*cmd_list)[nb_cmd].args[y],token_arg); 
+        }
 
-            // les remplit
-            strcpy(temp, token);
-            token_arg = strtok(temp, " ");
-            strcpy((*cmd_list)[nb_cmd].args[0],token_arg); 
-            for(int y=1;y<arg_number;y++){
-                token_arg = strtok(NULL, " ");
-                strcpy((*cmd_list)[nb_cmd].args[y],token_arg); 
-            }
-
-            nb_cmd++;
-            token = strtok_r(NULL,"|>",&saveptr_bloc);
-            //execute(args,arg_number,separator);
-        }while(token != NULL);
-    //pour chaque cmd/token :
-        
+        nb_cmd++;
+        token = strtok_r(NULL,"|>",&saveptr_bloc);
+        //execute(args,arg_number,separator);
+    }while(token != NULL);
+    return 0;
 
 
 }
@@ -140,8 +146,11 @@ void read_shell(char **raw_user_entry) {
     }
 
     // Supprime le retour à la ligne
-    // "test&\n" -> "test \n"
     buffer[strcspn(buffer, "\n")]='\0';
+    if(buffer[0] == '\0'){
+        buffer[0]=' ';
+        buffer[1]='\0';
+    }
     *raw_user_entry = malloc(strlen(buffer) + 1); // +1 pour le '\0'
     if (*raw_user_entry == NULL) { // ANTI ERREUR
         perror("malloc");
