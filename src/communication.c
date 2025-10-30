@@ -84,6 +84,8 @@ void read_shell(char **raw_user_entry) {
         return;
     }
 
+    // si 
+    buffer[strcspn(buffer, "\r\n")] = '\0'; // retour à la ligne -> '\0'
 
     *raw_user_entry = malloc(strlen(buffer) + 1); // +1 pour le '\0'
     if (*raw_user_entry == NULL){ // ANTI ERREUR MALLOC

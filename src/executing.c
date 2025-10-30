@@ -50,8 +50,6 @@ void exec_bloc(char *bloc){
             perror("open failed");
             exit(1);
         }
-        dup2(fd, STDOUT_FILENO);
-        close(fd);
     }
 
     if(n_pipe==0){
@@ -66,7 +64,8 @@ void exec_bloc(char *bloc){
 
         if (pid == 0) {
             if(redirection==true){
-                
+                dup2(fd, STDOUT_FILENO);
+                close(fd);
             }
             execvp(cmd_list[0].args[0], cmd_list[0].args);
             perror("execvp failed");
