@@ -7,6 +7,7 @@
 
 void cut_in_cmd(char *bloc,cmd** cmd_list,int* n,bool* redirection,int* n_pipe){
     // gérer le cas si bloc nul ou vide
+    if (bloc == NULL || *bloc == '\0') return;
     int arg_number;
     int length_bloc = strlen(bloc);
     //boucle qui compte le nombre de | et >
@@ -20,9 +21,10 @@ void cut_in_cmd(char *bloc,cmd** cmd_list,int* n,bool* redirection,int* n_pipe){
         }
     }
     //malloc n cmd dans cmd_liste
-    cmd_list = malloc((*n)*sizeof(cmd));
+    (*cmd_list) = malloc((*n)*sizeof(cmd));
     //sépare en token, separator = "|>"
-    char* token = strtok(bloc, "|>"); 
+    char* saveptr_bloc;
+    char* token = strtok_r(bloc, "|>",&saveptr_bloc); 
     int nb_cmd=0;
     do{
             //exec_bloc(token);
@@ -31,26 +33,31 @@ void cut_in_cmd(char *bloc,cmd** cmd_list,int* n,bool* redirection,int* n_pipe){
 
             // compte le nb d'arguments , separator " "
             arg_number=0;
-            char* token_arg = strtok(token, " "); 
+            char temp[MAX_LENGTH_PROMPT];
+            strcpy(temp, token);
+            char* token_arg = strtok(temp, " "); 
             do{
                 arg_number++;
-                char* token_arg = strtok(NULL, " "); 
+                token_arg = strtok(NULL, " "); 
             }while(token_arg != NULL);
-            (*cmd_list[nb_cmd]).arg_number=arg_number; 
-            (*cmd_list[nb_cmd]).args=malloc(sizeof(char*)*arg_number);
+            (*cmd_list)[nb_cmd].arg_number=arg_number; 
+            (*cmd_list)[nb_cmd].args=malloc(sizeof(char*)*arg_number);
             // malloc nb arguments chacun de taille max 256 char
             for(int y=0;y<arg_number;y++){
-                (*cmd_list[nb_cmd]).args[y]= malloc(sizeof(char)*MAX_LENGTH_PROMPT);
+                (*cmd_list)[nb_cmd].args[y]= malloc(sizeof(char)*MAX_LENGTH_PROMPT);
             }
 
             // les remplit
-            (*cmd_list[nb_cmd]).args[0] = strtok(token, " "); 
+            strcpy(temp, token);
+            token_arg = strtok(temp, " ");
+            strcpy((*cmd_list)[nb_cmd].args[0],token_arg); 
             for(int y=1;y<arg_number;y++){
-                (*cmd_list[nb_cmd]).args[y] = strtok(NULL, " ");
+                token_arg = strtok(NULL, " ");
+                strcpy((*cmd_list)[nb_cmd].args[y],token_arg); 
             }
 
             nb_cmd++;
-            token = strtok(NULL,"|>");
+            token = strtok_r(NULL,"|>",&saveptr_bloc);
             //execute(args,arg_number,separator);
         }while(token != NULL);
     //pour chaque cmd/token :
