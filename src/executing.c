@@ -10,10 +10,9 @@
 
 
 void exec_bloc(char *bloc){
-    printf("\t -- Execution du bloc : %s\n",bloc);
+    if(DEBUG_PRINT){printf("\t -- Execution du bloc : %s\n",bloc);}
     // tableau de tableau de string (cmd)
     int n=1;
-    int fd;
     int n_pipe=0;
     bool redirection=false;
     bool background_cmd=false;
@@ -23,33 +22,25 @@ void exec_bloc(char *bloc){
     
     // lire cmd_list pour test
 
-    /*
-    for(int i=0;i<n;i++){
-        printf(" Commande %d :\n",i);
-        for(int j=0;j<cmd_list[i].arg_number;j++){
-            printf("  Arg %d : %s\n",j,cmd_list[i].args[j]);
+    if(DEBUG_PRINT){
+        for(int i=0;i<n;i++){
+            printf(" Commande %d :\n",i);
+            for(int j=0;j<cmd_list[i].arg_number;j++){
+                printf("  Arg %d : %s\n",j,cmd_list[i].args[j]);
+            }
         }
     }
-    */
 
     // execution
     char* last_arg=cmd_list[n-1].args[cmd_list[n-1].arg_number-1];
     int len = strlen(last_arg);
     
     if(last_arg[len-1]=='&'){
-        printf("* commande en arriere plan\n");
+        if(DEBUG_PRINT){printf("* commande en arriere plan\n");}
         background_cmd = true;
         last_arg[len-1] = '\0';
         // /!\ peut generer une commande nulle
         // -> déjà gérer par le shell de base
-    }
-    if(redirection==true){
-        // ligne
-        fd = open(cmd_list[n-1].args[0], O_WRONLY | O_CREAT | O_TRUNC, 0644); // trouvé sur internet
-        if (fd == -1) {
-            perror("open failed");
-            exit(1);
-        }
     }
 
     if(n_pipe==0){
@@ -64,9 +55,9 @@ void exec_bloc(char *bloc){
             return;
         }
         // CD
-        if(strcmp(cmd_list[0].args[0], "cd") == 0) {
+        if(strcmp(cmd_list[0].args[0], "cd")==0){
             char* arg = cmd_list[0].args[1];
-            if(arg == NULL){arg =getenv("HOME"); } // par défaut le home
+            if(arg == NULL){arg=getenv("HOME"); } // par défaut le home
             chdir(arg);
             return;
         }
@@ -81,17 +72,22 @@ void exec_bloc(char *bloc){
 
         if (pid == 0) {
             if(redirection==true){
-                dup2(fd, STDOUT_FILENO);
-                close(fd);
+                FILE * f = freopen(cmd_list[0].args[0], "w", stdout);
+                if (f == NULL) {
+                    fprintf(stderr, "Cannot reopen streams");
+                    exit(EXIT_FAILURE);
+                }
+
             }
             execvp(cmd_list[0].args[0], cmd_list[0].args);
             perror("execvp failed");
+            fclose(stdout);
             exit(1);
         } else {
             //  Parent : attend la fin du processus enfant
             int status;
             if(!background_cmd){waitpid(pid, &status, 0);}
-            printf("La commande s'est terminée avec le code %d\n", WEXITSTATUS(status));
+            if(DEBUG_PRINT){printf("La commande s'est terminée avec le code %d\n", WEXITSTATUS(status));}
         }
 
 
@@ -109,11 +105,11 @@ void exec_bloc(char *bloc){
 
         if (pid == 0) {
             // enfant
-            int pipes[n-1-redirection][2]; // tableau des pipes
+            int pipes[n_pipe][2]; // tableau des pipes
             // - redirection car la commande avec redirection compte pour 2 commande
             pid_t pids[n];
 
-            for (int i = 0; i < n - 1; i++) {
+            for (int i = 0; i < n_pipe; i++) {
                 if (pipe(pipes[i]) == -1) {
                     perror("pipe");
                     exit(1);
@@ -121,42 +117,55 @@ void exec_bloc(char *bloc){
             }
 
 
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < n_pipe+1 ; i++){
                 pids[i] = fork();
 
-                if (pids[i] == -1) {
+                if(pids[i] == -1){
                     perror("fork");
                     exit(1);
                 }
 
-                if (pids[i] == 0) {
+                if(pids[i] == 0){
                     // Processus fils
 
-                    // Si ce n’est pas le premier, on lit depuis le pipe précédent
-                    if (i > 0) {
+                    // Si cest pas le premier, on lit depuis le pipe precédent
+                    if(i > 0){
                         dup2(pipes[i - 1][0], STDIN_FILENO);
                     }
 
-                    // Si ce n’est pas le dernier, on écrit vers le pipe suivant
-                    if (i < n - 1) {
+                    // Si cest pas la derniere des commandes pipés,on écrit vers le pipe suivant
+                    if(i < n_pipe){
                         dup2(pipes[i][1], STDOUT_FILENO);
                     }
-                    else{
-                        if(redirection==true){
-                            dup2(fd, STDOUT_FILENO);
-                            close(fd);
+                    // SI il y a redirection.
+                    if(redirection){
+                        // Si c'est la dernière commande pipée (vraie commande)
+                        if(i==n_pipe){ 
+                            if(DEBUG_PRINT){printf("redirection !");}
+                            FILE * f = freopen(cmd_list[n-1].args[0], "w", stdout);
+                            if (f == NULL) {
+                                fprintf(stderr, "Cannot reopen streams");
+                                exit(EXIT_FAILURE);
+                            }
+                        }
+                        // Si c'est la derniere commande
+                        // alors on execute rien puisque la derniere commande 
+                        // est le path du fichier dans lequel écrire.
+                        if(i==n_pipe+1){
+                            exit(1);
                         }
                     }
 
-                    // Ferme tous les descripteurs de pipe inutilisés
-                    for (int j = 0; j < n - 1; j++) {
+                    //Ferme tous les descripteurs de pipe inutilises
+                    for(int j = 0; j < n - 1; j++){
                         close(pipes[j][0]);
                         close(pipes[j][1]);
                     }
 
-                    // Exécute la commande
+                    // Execute la commande
                     execvp(cmd_list[i].args[0], cmd_list[i].args);
                     perror("execvp"); // si exec échoue
+                    fclose(stdout);
                     exit(1);
                 }
             }
@@ -174,8 +183,8 @@ void exec_bloc(char *bloc){
         } else {
             //  Parent : attend la fin du processus enfant
             int status;
-            if(!background_cmd){waitpid(pid, &status, 0);printf("on attend");}
-            printf("La commande s'est terminée avec le code %d\n", WEXITSTATUS(status));
+            if(!background_cmd){waitpid(pid, &status, 0);}
+            if(DEBUG_PRINT){printf("La commande s'est terminée avec le code %d\n", WEXITSTATUS(status));} // extrait du cours
         }
 
 

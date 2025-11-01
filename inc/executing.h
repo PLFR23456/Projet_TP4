@@ -1,3 +1,4 @@
+#define DEBUG_PRINT 0
 #ifndef EXECUTING
 #define EXECUTING
 

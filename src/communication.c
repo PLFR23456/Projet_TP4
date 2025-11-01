@@ -12,7 +12,7 @@ int cut_in_cmd(char *bloc,cmd** cmd_list,int* n,bool* redirection,int* n_pipe){
     if (bloc == NULL || 
         *bloc == '\0' ||
         strspn(bloc, " \t\r\n") == strlen(bloc)){
-        printf("Vous avez rentré une commande vide\n"); 
+        if(DEBUG_PRINT){printf("Vous avez rentré une commande vide.\n");}
         return -1;
     }
 

@@ -31,7 +31,7 @@ int main(){
             // arg_number = 0;
             // cut_in_args(token,args,arg_number);
             
-            printf("\n-\n");
+            if(DEBUG_PRINT){printf("\n-\n");}
             //execute(args,arg_number,separator);
         }while(token != NULL);
         free(raw_user_entry);
