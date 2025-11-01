@@ -9,6 +9,8 @@
         "bitset": "c",
         "string_view": "c",
         "initializer_list": "c",
-        "span": "c"
+        "span": "c",
+        "executing.h": "c",
+        "stdlib.h": "c"
     }
 }

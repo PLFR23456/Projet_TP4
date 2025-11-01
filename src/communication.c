@@ -31,6 +31,8 @@ int cut_in_cmd(char *bloc,cmd** cmd_list,int* n,bool* redirection,int* n_pipe){
     }
     //malloc n cmd dans cmd_liste
     (*cmd_list) = malloc((*n)*sizeof(cmd));
+    if (*cmd_list == NULL){ // ANTI ERREUR MALLOC
+        perror("malloc"); exit(1);}
     //sépare en token, separator = "|>"
     char* saveptr_bloc;
     char* token = strtok_r(bloc, "|>",&saveptr_bloc); 
@@ -50,9 +52,13 @@ int cut_in_cmd(char *bloc,cmd** cmd_list,int* n,bool* redirection,int* n_pipe){
         }while(token_arg != NULL);
         (*cmd_list)[nb_cmd].arg_number=arg_number; 
         (*cmd_list)[nb_cmd].args=malloc(sizeof(char*)*(arg_number+1));
+        if ((*cmd_list)[nb_cmd].args == NULL){ // ANTI ERREUR MALLOC
+        perror("malloc"); exit(1);}
         // malloc nb arguments chacun de taille max 256 char
         for(int y=0;y<arg_number;y++){
             (*cmd_list)[nb_cmd].args[y]= malloc(sizeof(char)*MAX_LENGTH_PROMPT);
+            if ((*cmd_list)[nb_cmd].args[y] == NULL){ // ANTI ERREUR MALLOC
+                perror("malloc"); exit(1);}
         }
         (*cmd_list)[nb_cmd].args[arg_number]=NULL; // pas besoin d'un malloc
         // les remplit
@@ -97,12 +103,4 @@ void read_shell(char **raw_user_entry) {
 
     strcpy(*raw_user_entry,buffer);
     
-}
-
-void free_args(char **args, int arg_number){
-    if(args==NULL)return;
-    for(int i=0;i<arg_number;i++){
-        free(args[i]);
-    }
-    free(args);
 }

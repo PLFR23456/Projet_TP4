@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 
+void free_cmd_list(cmd* cmd_list, int n);
 
 void exec_bloc(char *bloc){
     if(DEBUG_PRINT){printf("\t -- Execution du bloc : %s\n",bloc);}
@@ -45,20 +46,24 @@ void exec_bloc(char *bloc){
 
     if(n_pipe==0){
         // pwd
-        if(strcmp(cmd_list[0].args[0], "pwd") == 0){
-            char cwd[256];
-            if (getcwd(cwd,sizeof(cwd)) != NULL){
+        if(strcmp(cmd_list[0].args[0],"pwd") == 0){
+            char cwd[1000];
+            if(getcwd(cwd,sizeof(cwd))!=NULL){
                 printf("%s\n", cwd);
             }else{
                 perror("getcwd");
             }
+            free_cmd_list(cmd_list,n);
             return;
         }
         // CD
         if(strcmp(cmd_list[0].args[0], "cd")==0){
             char* arg = cmd_list[0].args[1];
             if(arg == NULL){arg=getenv("HOME"); } // par défaut le home
-            chdir(arg);
+            if(chdir(arg)==-1){
+                perror("cd failed");
+            }
+            free_cmd_list(cmd_list,n);
             return;
         }
         
@@ -190,4 +195,15 @@ void exec_bloc(char *bloc){
 
     }
 
+}
+
+
+void free_cmd_list(cmd* cmd_list, int n){
+    for(int i=0;i<n;i++){
+        for(int j=0;j<cmd_list[i].arg_number;j++){
+            free(cmd_list[i].args[j]);
+        }
+        free(cmd_list[i].args);
+    }
+    free(cmd_list);
 }
